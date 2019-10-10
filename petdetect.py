@@ -30,9 +30,9 @@ def id_class_name(class_id, classes):
 model = cv2.dnn.readNetFromTensorflow('models/frozen_inference_graph.pb', 'models/ssd_mobilenet_v2_coco_2018_03_29.pbtxt')
 
 camera = cv2.VideoCapture(0)
-camera.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-camera.set(cv2.CAP_PROP_FPS, 40)
+camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+camera.set(cv2.CAP_PROP_FPS, 30)
 camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 # keep looping
@@ -40,7 +40,7 @@ while True:
     # grab the current frame
     (grabbed, frame) = camera.read()
     
-    model.setInput(cv2.dnn.blobFromImage(frame, size=(320, 240), swapRB=True))
+    model.setInput(cv2.dnn.blobFromImage(frame, size=(640, 480), swapRB=True))
     output = model.forward()
     
     for detection in output[0, 0, :, :]:
@@ -60,9 +60,9 @@ while True:
                 camera.release()
                 time.sleep(8)
                 camera = cv2.VideoCapture(0)
-                camera.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-                camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-                camera.set(cv2.CAP_PROP_FPS, 40)
+                camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                camera.set(cv2.CAP_PROP_FPS, 30)
                 camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                 time.sleep(8)
                 break
