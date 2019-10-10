@@ -1,7 +1,9 @@
 import cv2
+import time
+import requests
 
 # Pretrained classes in the model
-classNames = {1: 'person', 17: 'cat', 18: 'dog'}
+classNames = {17: 'cat', 18: 'dog'}
 
 my_width = 320
 my_height = 240
@@ -18,6 +20,7 @@ camera = cv2.VideoCapture(0)
 camera.set(cv2.CAP_PROP_FRAME_WIDTH, my_width)
 camera.set(cv2.CAP_PROP_FRAME_HEIGHT, my_height)
 camera.set(cv2.CAP_PROP_FPS, 40)
+camera.set(cv2.CAP_PROP_BUFFERSIZE, 1);
 
 # keep looping
 while True:
@@ -26,22 +29,33 @@ while True:
     
     model.setInput(cv2.dnn.blobFromImage(frame, size=(my_width, my_height), swapRB=True))
     output = model.forward()
+    class_name = ''
     
     for detection in output[0, 0, :, :]:
         confidence = detection[2]
         if confidence > .7:
             class_id = detection[1]
+            print(class_id)
             class_name=id_class_name(class_id,classNames)
             #print(str(str(class_id) + " " + str(detection[2])  + " " + class_name))
             box_x = detection[3] * my_width
             box_y = detection[4] * my_height
             box_width = detection[5] * my_width
             box_height = detection[6] * my_height
-            # send the picture to the server
-            # ask the server to classify
             cv2.rectangle(frame, (int(box_x), int(box_y)), (int(box_width), int(box_height)), (23, 230, 210), thickness=1)
             cv2.putText(frame, class_name, (int(box_x), int(box_y+.05*my_height)),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255))
-        
+            if class_name == 'cat' or class_name == 'dog':
+                break
+            
+    if class_name == 'cat' or class_name == 'dog':
+        # save picture to the temp folder
+        filetime = time.strftime("%Y%m%d%H%M%S")
+        cv2.imwrite("temp/filename-%s.jpg" % filetime, frame)
+        # send the picture to the server
+        files = {'file': open("temp/filename-%s.jpg" % filetime, 'rb')}
+        r = requests.post("http://35.244.89.241/newpendingpet.php", files=files)
+        time.sleep(10)
+
     # show the frame to our screen
     cv2.imshow("Frame", frame)
     
