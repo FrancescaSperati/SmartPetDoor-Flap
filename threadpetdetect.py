@@ -1,8 +1,5 @@
-import cv2
-import time
-import requests
+import cv2, queue, threading, time, requests
 
-# Pretrained classes in the model
 classNames = {0: 'background',
               1: 'person', 2: 'bicycle', 3: 'car', 4: 'motorcycle', 5: 'airplane', 6: 'bus',
               7: 'train', 8: 'truck', 9: 'boat', 10: 'traffic light', 11: 'fire hydrant',
@@ -21,31 +18,51 @@ classNames = {0: 'background',
               80: 'toaster', 81: 'sink', 82: 'refrigerator', 84: 'book', 85: 'clock',
               86: 'vase', 87: 'scissors', 88: 'teddy bear', 89: 'hair drier', 90: 'toothbrush'}
 
-my_width = 320
-my_height = 240
-
 def id_class_name(class_id, classes):
     for key, value in classes.items():
         if class_id == key:
             return value
 
-# Loading model
 model = cv2.dnn.readNetFromTensorflow('models/frozen_inference_graph.pb', 'models/ssd_mobilenet_v2_coco_2018_03_29.pbtxt')
 
+
+# bufferless VideoCapture
+class VideoCapture:
+  def __init__(self, name):
+    self.cap = cv2.VideoCapture(name)
+    self.q = Queue.Queue()
+    t = threading.Thread(target=self._reader)
+    t.daemon = True
+    t.start()
+  # read frames as soon as they are available, keeping only most recent one
+  def _reader(self):
+    while True:
+      ret, frame = self.cap.read()
+      if not ret:
+        break
+      if not self.q.empty():
+        try:
+          self.q.get_nowait()   # discard previous (unprocessed) frame
+        except Queue.Empty:
+          pass
+      self.q.put(frame)
+  def read(self):
+    return self.q.get()
+
+
 camera = cv2.VideoCapture(0)
-camera.set(cv2.CAP_PROP_FRAME_WIDTH, my_width)
-camera.set(cv2.CAP_PROP_FRAME_HEIGHT, my_height)
-camera.set(cv2.CAP_PROP_FPS, 40)
-camera.set(cv2.CAP_PROP_BUFFERSIZE, 1);
+camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+camera.set(cv2.CAP_PROP_FPS, 30)
+#camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 # keep looping
 while True:
     # grab the current frame
     (grabbed, frame) = camera.read()
     
-    model.setInput(cv2.dnn.blobFromImage(frame, size=(my_width, my_height), swapRB=True))
+    model.setInput(cv2.dnn.blobFromImage(frame, size=(640, 480), swapRB=True))
     output = model.forward()
-    class_name = ''
     
     for detection in output[0, 0, :, :]:
         confidence = detection[2]
@@ -53,34 +70,14 @@ while True:
             class_id = detection[1]
             class_name=id_class_name(class_id,classNames)
             print(class_name)
-            box_x = detection[3] * my_width
-            box_y = detection[4] * my_height
-            box_width = detection[5] * my_width
-            box_height = detection[6] * my_height
-            cv2.rectangle(frame, (int(box_x), int(box_y)), (int(box_width), int(box_height)), (23, 230, 210), thickness=1)
-            cv2.putText(frame, class_name, (int(box_x), int(box_y+.05*my_height)),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255))
             if class_name == 'cat' or class_name == 'dog':
+                # save picture to the temp folder
+                filetime = time.strftime("%Y%m%d%H%M%S")
+                cv2.imwrite("temp/filename-%s.jpg" % filetime, frame)
+                # send the picture to the server
+                files = {'file': open("temp/filename-%s.jpg" % filetime, 'rb')}
+                r = requests.post("http://35.244.89.241/newpendingpet.php", files=files)
+                time.sleep(20)
                 break
-            
-    #if False:
-    if class_name == 'cat' or class_name == 'dog':
-        # save picture to the temp folder
-        filetime = time.strftime("%Y%m%d%H%M%S")
-        cv2.imwrite("temp/filename-%s.jpg" % filetime, frame)
-        # send the picture to the server
-        files = {'file': open("temp/filename-%s.jpg" % filetime, 'rb')}
-        r = requests.post("http://35.244.89.241/newpendingpet.php", files=files)
-        time.sleep(10)
 
-    # show the frame to our screen
-    cv2.imshow("Frame", frame)
-    
-    key = cv2.waitKey(1) & 0xFF
-    # if the 'q' key is pressed, stop the loop
-    if key == ord("q"):
-        break
-
-# cleanup the camera and close any open windows
 camera.release()
-cv2.destroyAllWindows()
-
