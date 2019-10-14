@@ -11,3 +11,7 @@ Into the raspberry pi there are two main scripts:
  - petdetect.py
   operates object detection from TensorFlow using the MobileNet dataset. 
   If a 'cat' or 'dog' is detected, it will take a picture and send it to the Server
+
+
+All code of this repository is property and copyright of Francesca Sperati and Charlie Chiu, 
+Licence is proprietary and all rights are reserved
